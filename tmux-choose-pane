@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o nounset
+set -o pipefail
+set -o errtrace
+(shopt -p inherit_errexit &>/dev/null) && shopt -s inherit_errexit
+
+help() {
+  cat <<EOF
+Usage: [<ENV_OPTS>] tmux-choose-pane
+
+ENV_OPTS:
+  border_bg=#19191A            The background color of pane-border-style
+  border_fg=#A2A2A2            The background color of pane-border-style
+  active_border_bg=#081A33     The background color of pane-active-border-style
+  active_border_fg=#428FFF     The front color of pane-active-border-style
+  pane_border_status=top       Turn pane border status lines off or set their position. Values: off | top | bottom
+  display_time=10000           Display duration in milliseconds
+EOF
+}
+
+function tmux-choose-pane() {
+  local border_status border_style active_border_style
+  border_status=$(tmux show -gv pane-border-status)
+  border_style=$(tmux show -gv pane-border-style)
+  active_border_style=$(tmux show -gv pane-active-border-style)
+
+  shopt -s extglob # this line let [[:alnum]] work
+
+  local sel_border_style="${border_style/bg=#+([[:alnum:]])/bg=${border_bg:-#19191A}}"
+  sel_border_style="${sel_border_style/fg=#+([[:alnum:]])/fg=${border_fg:-#A2A2A2}}"
+
+  local sel_active_border_style=${active_border_style/bg=#+([[:alnum:]])/bg=${active_border_bg:-#081A33}}
+  sel_active_border_style="${sel_active_border_style/fg=#+([[:alnum:]])/fg=${active_border_fg:-#428FFF}}"
+
+  tmux set -w pane-border-style "$sel_border_style"
+  tmux set -w pane-active-border-style "$sel_active_border_style"
+  [[ $border_status == off ]] && tmux set -w pane-border-status "${pane_border_status:-top}"
+  tmux display-panes -d "${display_time:-10000}" # display pane selector in 10s
+  tmux set -w pane-border-status "$border_status"
+  tmux set -w pane-border-style "$border_style"
+  tmux set -w pane-active-border-style "$active_border_style"
+}
+
+case ${1:-} in
+  -h|--help)
+    help
+    ;;
+  *)
+    tmux-choose-pane
+esac
